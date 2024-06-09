@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "720330685914",
+    "firebase_url": "https://battleship-b2b2d-default-rtdb.firebaseio.com",
+    "project_id": "battleship-b2b2d",
+    "storage_bucket": "battleship-b2b2d.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:720330685914:android:d3cb1dfe3960a76d0e54e3",
+        "android_client_info": {
+          "package_name": "com.example.battleship"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAOHzyJeFwDzumqdX_eGkiYA-LwugWHPLY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
