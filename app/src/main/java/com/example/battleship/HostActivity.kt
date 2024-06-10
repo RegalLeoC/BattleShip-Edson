@@ -48,7 +48,7 @@ class HostActivity : AppCompatActivity() {
         enemyGridItems = MutableList(64) { GridItem(false, false, it) }
         playerGridItems = MutableList(64) { GridItem(false, false, it) }
 
-        enemyGridAdapter = GridAdapter(this, enemyGridItems)
+        enemyGridAdapter = GridAdapter(this, enemyGridItems, isEnemyGrid = true)
         playerGridAdapter = GridAdapter(this, playerGridItems)
 
         enemyGrid.adapter = enemyGridAdapter
@@ -62,17 +62,31 @@ class HostActivity : AppCompatActivity() {
         gameRef.get().addOnSuccessListener { document ->
             if (document != null) {
                 val game = document.toObject(Game::class.java)
-                if (game != null && game.player1Ships.isEmpty()) {
-                    val ships = generateShips()
-                    gameRef.update("player1Ships", ships)
+                if (game != null) {
+                    if (auth.currentUser?.uid == game.player1) {
+                        if (game.player1Ships.isEmpty()) {
+                            val ships = generateShips()
+                            gameRef.update("player1Ships", ships)
+                        } else {
+                            updatePlayerGrid(game.player1Ships)
+                        }
+                    } else {
+                        if (game.player2Ships.isEmpty()) {
+                            val ships = generateShips()
+                            gameRef.update("player2Ships", ships)
+                        } else {
+                            updatePlayerGrid(game.player2Ships)
+                        }
+                    }
                 }
             }
         }
     }
 
+
     private fun generateShips(): List<GridItem> {
         val shipSizes = listOf(4, 3, 3, 2, 2)
-        val ships = mutableListOf<GridItem>()
+        val ships = MutableList(64) { GridItem(false, false, it) }
         val random = java.util.Random()
 
         for (size in shipSizes) {
@@ -83,7 +97,7 @@ class HostActivity : AppCompatActivity() {
                 if (canPlaceShip(start, size, horizontal)) {
                     for (i in 0 until size) {
                         val pos = if (horizontal) start + i else start + i * 8
-                        ships.add(GridItem(isShip = true, isHit = false, position = pos))
+                        ships[pos].isShip = true
                     }
                     placed = true
                 }
@@ -113,10 +127,10 @@ class HostActivity : AppCompatActivity() {
                     val item = enemyGridItems[position]
                     if (!item.isHit) {
                         item.isHit = true
-                        if (isShipAtPosition(game.player2Ships, position)) {
-                            item.isShip = true
-                        }
-                        gameRef.update("player1Hits", enemyGridItems)
+                        val player2Ships = game.player2Ships.toMutableList()
+                        val target = player2Ships.find { it.position == position }
+                        target?.isHit = true
+                        gameRef.update("player2Ships", player2Ships)
                         enemyGridAdapter.notifyDataSetChanged()
                         switchTurn(game)
                     }
@@ -125,10 +139,6 @@ class HostActivity : AppCompatActivity() {
                 }
             }
         }
-    }
-
-    private fun isShipAtPosition(ships: List<GridItem>, position: Int): Boolean {
-        return ships.any { it.position == position && it.isShip }
     }
 
     private fun switchTurn(game: Game) {
@@ -179,19 +189,27 @@ class HostActivity : AppCompatActivity() {
     private fun updateGrids(game: Game) {
         val currentUser = auth.currentUser?.uid
 
-        // Update player's grid based on opponent's hits
-        val enemyHits = if (currentUser == game.player1) game.player1Hits else game.player2Hits
-        for (gridItem in enemyHits) {
+        // Update player's grid
+        val playerShips = if (currentUser == game.player1) game.player1Ships else game.player2Ships
+        updatePlayerGrid(playerShips)
+
+        // Update enemy's grid
+        val enemyShips = if (currentUser == game.player1) game.player2Ships else game.player1Ships
+        updateEnemyGrid(enemyShips)
+    }
+
+    private fun updatePlayerGrid(playerShips: List<GridItem>) {
+        for (gridItem in playerShips) {
             playerGridItems[gridItem.position].apply {
                 isHit = gridItem.isHit
                 isShip = gridItem.isShip
             }
         }
         playerGridAdapter.notifyDataSetChanged()
+    }
 
-        // Update opponent's grid based on player's hits
-        val playerHits = if (currentUser == game.player1) game.player2Hits else game.player1Hits
-        for (gridItem in playerHits) {
+    private fun updateEnemyGrid(enemyShips: List<GridItem>) {
+        for (gridItem in enemyShips) {
             enemyGridItems[gridItem.position].apply {
                 isHit = gridItem.isHit
                 isShip = gridItem.isShip

@@ -7,7 +7,7 @@ import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.ImageView
 
-class GridAdapter(private val context: Context, private val gridItems: List<GridItem>) : BaseAdapter() {
+class GridAdapter(private val context: Context, private val gridItems: List<GridItem>, private val isEnemyGrid: Boolean = false) : BaseAdapter() {
 
     override fun getCount(): Int {
         return gridItems.size
@@ -42,10 +42,14 @@ class GridAdapter(private val context: Context, private val gridItems: List<Grid
                 imageView.setImageResource(R.drawable.ic_miss)
             }
         } else {
-            if (gridItem.isShip) {
-                imageView.setImageResource(R.drawable.ic_ship)
-            } else {
+            if (isEnemyGrid) {
                 imageView.setImageResource(R.drawable.ic_empty)
+            } else {
+                if (gridItem.isShip) {
+                    imageView.setImageResource(R.drawable.ic_ship)
+                } else {
+                    imageView.setImageResource(R.drawable.ic_empty)
+                }
             }
         }
 
