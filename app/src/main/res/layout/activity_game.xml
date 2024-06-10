@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -11,8 +10,7 @@
         android:layout_height="wrap_content"
         android:text="Your Turn"
         android:textSize="18sp"
-        android:layout_gravity="center"
-        android:padding="8dp" />
+        android:layout_gravity="center"/>
 
     <GridView
         android:id="@+id/enemyGrid"
@@ -20,10 +18,8 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:numColumns="8"
-        android:verticalSpacing="4dp"
-        android:horizontalSpacing="4dp"
-        android:stretchMode="columnWidth"
-        android:gravity="center" />
+        android:verticalSpacing="5dp"
+        android:horizontalSpacing="5dp"/>
 
     <GridView
         android:id="@+id/playerGrid"
@@ -31,9 +27,8 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:numColumns="8"
-        android:verticalSpacing="4dp"
-        android:horizontalSpacing="4dp"
-        android:stretchMode="columnWidth"
-        android:gravity="center" />
-
+        android:verticalSpacing="5dp"
+        android:horizontalSpacing="5dp"
+        android:clickable="false"
+        android:focusable="false"/>
 </LinearLayout>

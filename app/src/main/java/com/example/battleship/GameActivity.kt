@@ -55,29 +55,18 @@ class GameActivity : AppCompatActivity() {
         // Set item click listener for the enemy grid
         enemyGrid.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
             val currentUser = auth.currentUser?.uid
-            if (turnIndicator.text == "Your Turn" && currentUser != null) {
-                val gameRef = db.collection("games").document(gameId)
-                gameRef.get().addOnSuccessListener { document ->
-                    if (document != null) {
-                        val game = document.toObject(Game::class.java)
-                        if (game?.turn == currentUser) {
-                            val item = enemyGridItems[position]
-                            if (!item.isHit) {
-                                item.isHit = true
-                                if (isShipAtPosition(game.enemyShips, position)) {
-                                    item.isShip = true
-                                }
-                                enemyGridAdapter.notifyDataSetChanged()
-                                switchTurn()
-                            }
-                        }
+            val gameRef = db.collection("games").document(gameId)
+            gameRef.get().addOnSuccessListener { document ->
+                if (document != null) {
+                    val game = document.toObject(Game::class.java)
+                    if (game != null && game.turn == currentUser) {
+                        handleEnemyGridClick(game, position)
+                    } else {
+                        Toast.makeText(this, "Not your turn", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
         }
-
-        // Set item click listener for the player grid (if needed)
-        // Example: playerGrid.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ -> /* Handle click */ }
 
         // Load initial grid data from Firestore
         loadGridData()
@@ -104,6 +93,8 @@ class GameActivity : AppCompatActivity() {
                         }
                     }
                     enemyGridAdapter.notifyDataSetChanged()
+
+                    updateTurnIndicator()
                 }
             }
         }
@@ -113,27 +104,33 @@ class GameActivity : AppCompatActivity() {
         return shipPositions.any { it.position == position }
     }
 
-    private fun switchTurn() {
+    private fun handleEnemyGridClick(game: Game, position: Int) {
         val gameRef = db.collection("games").document(gameId)
-        gameRef.get().addOnSuccessListener { document ->
-            if (document != null) {
-                val game = document.toObject(Game::class.java)
-                val nextTurn = if (game?.turn == game?.player1) game?.player2 else game?.player1
-
-                // Update the turn field in the game document
-                gameRef.update("turn", nextTurn)
-                    .addOnSuccessListener {
-                        updateTurnIndicator()
-                    }
-                    .addOnFailureListener {
-                        // Handle the error
-                        Toast.makeText(this, "Failed to switch turn.", Toast.LENGTH_SHORT).show()
-                    }
+        val item = enemyGridItems[position]
+        if (!item.isHit) {
+            item.isHit = true
+            if (isShipAtPosition(game.enemyShips, position)) {
+                item.isShip = true
+                enemyGridAdapter.notifyDataSetChanged()
+                checkForWin(game)
+            } else {
+                enemyGridAdapter.notifyDataSetChanged()
             }
-        }.addOnFailureListener {
-            // Handle the error
-            Toast.makeText(this, "Failed to get game data.", Toast.LENGTH_SHORT).show()
+            switchTurn(game)
         }
+    }
+
+    private fun switchTurn(game: Game) {
+        val gameRef = db.collection("games").document(gameId)
+        val nextTurn = if (game.turn == game.player1) game.player2 else game.player1
+
+        gameRef.update("turn", nextTurn)
+            .addOnSuccessListener {
+                updateTurnIndicator()
+            }
+            .addOnFailureListener {
+                Toast.makeText(this, "Failed to switch turn.", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun updateTurnIndicator() {
@@ -146,10 +143,20 @@ class GameActivity : AppCompatActivity() {
 
                 if (currentTurn == currentUser) {
                     turnIndicator.text = "Your Turn"
+                    enemyGrid.isEnabled = true
                 } else {
                     turnIndicator.text = "Enemy's Turn"
+                    enemyGrid.isEnabled = false
                 }
             }
+        }
+    }
+
+    private fun checkForWin(game: Game) {
+        val enemyShipsHit = enemyGridItems.count { it.isHit && it.isShip }
+        if (enemyShipsHit == game.enemyShips.size) {
+            Toast.makeText(this, "You Win!", Toast.LENGTH_SHORT).show()
+            // Handle win logic here
         }
     }
 }
