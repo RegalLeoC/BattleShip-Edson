@@ -1,6 +1,7 @@
 package com.example.battleship
 
 import android.os.Bundle
+import android.util.Log
 import android.widget.AdapterView
 import android.widget.GridView
 import android.widget.TextView
@@ -45,8 +46,18 @@ class HostActivity : AppCompatActivity() {
     }
 
     private fun initGrids() {
-        enemyGridItems = MutableList(64) { GridItem(false, false, it) }
-        playerGridItems = MutableList(64) { GridItem(false, false, it) }
+        // Ensure positions are correctly enumerated
+        enemyGridItems = MutableList(64) { GridItem(false, position = it, false) }
+        playerGridItems = MutableList(64) { GridItem(false, position =  it, false) }
+
+        for (i in enemyGridItems.indices){
+            enemyGridItems[i].position = i
+        }
+
+        for (i in playerGridItems.indices) {
+            playerGridItems[i].position = i
+        }
+
 
         enemyGridAdapter = GridAdapter(this, enemyGridItems, isEnemyGrid = true)
         playerGridAdapter = GridAdapter(this, playerGridItems)
@@ -58,22 +69,26 @@ class HostActivity : AppCompatActivity() {
             handleEnemyGridClick(position)
         }
 
-        // Load player's ships
+        val currentUser = auth.currentUser?.uid
         gameRef.get().addOnSuccessListener { document ->
             if (document != null) {
                 val game = document.toObject(Game::class.java)
                 if (game != null) {
-                    if (auth.currentUser?.uid == game.player1) {
+                    if (currentUser == game.player1) {
                         if (game.player1Ships.isEmpty()) {
                             val ships = generateShips()
-                            gameRef.update("player1Ships", ships)
+                            gameRef.update("player1Ships", ships).addOnSuccessListener {
+                                updatePlayerGrid(ships)
+                            }
                         } else {
                             updatePlayerGrid(game.player1Ships)
                         }
                     } else {
                         if (game.player2Ships.isEmpty()) {
                             val ships = generateShips()
-                            gameRef.update("player2Ships", ships)
+                            gameRef.update("player2Ships", ships).addOnSuccessListener {
+                                updatePlayerGrid(ships)
+                            }
                         } else {
                             updatePlayerGrid(game.player2Ships)
                         }
@@ -83,36 +98,43 @@ class HostActivity : AppCompatActivity() {
         }
     }
 
-
     private fun generateShips(): List<GridItem> {
         val shipSizes = listOf(4, 3, 3, 2, 2)
-        val ships = MutableList(64) { GridItem(false, false, it) }
+        val ships = MutableList(64) { GridItem(false, it, false) }
         val random = java.util.Random()
 
         for (size in shipSizes) {
             var placed = false
-            while (!placed) {
+            var attempts = 0 // To prevent infinite loops
+            while (!placed && attempts < 100) {
+                attempts++
                 val start = random.nextInt(64)
                 val horizontal = random.nextBoolean()
-                if (canPlaceShip(start, size, horizontal)) {
+                if (canPlaceShip(start, size, horizontal, ships)) {
+                    Log.d("GenerateShips", "Placing ship of size $size at start $start horizontally: $horizontal")
                     for (i in 0 until size) {
                         val pos = if (horizontal) start + i else start + i * 8
                         ships[pos].isShip = true
                     }
                     placed = true
+                } else {
+                    Log.d("GenerateShips", "Cannot place ship of size $size at start $start horizontally: $horizontal")
                 }
+            }
+            if (attempts == 100) {
+                Log.e("GenerateShips", "Failed to place ship of size $size after 100 attempts")
             }
         }
         return ships
     }
 
-    private fun canPlaceShip(start: Int, size: Int, horizontal: Boolean): Boolean {
+    private fun canPlaceShip(start: Int, size: Int, horizontal: Boolean, ships: List<GridItem>): Boolean {
         for (i in 0 until size) {
             val pos = if (horizontal) start + i else start + i * 8
             if (pos >= 64 || (horizontal && start % 8 + i >= 8)) {
                 return false
             }
-            if (playerGridItems[pos].isShip) {
+            if (ships[pos].isShip) {
                 return false
             }
         }
@@ -189,13 +211,25 @@ class HostActivity : AppCompatActivity() {
     private fun updateGrids(game: Game) {
         val currentUser = auth.currentUser?.uid
 
-        // Update player's grid
         val playerShips = if (currentUser == game.player1) game.player1Ships else game.player2Ships
-        updatePlayerGrid(playerShips)
+        for (gridItem in playerShips) {
+            playerGridItems[gridItem.position].apply {
+                isShip = gridItem.isShip
+                isHit = gridItem.isHit
+            }
+        }
+        playerGridAdapter.notifyDataSetChanged()
 
-        // Update enemy's grid
         val enemyShips = if (currentUser == game.player1) game.player2Ships else game.player1Ships
-        updateEnemyGrid(enemyShips)
+        for (gridItem in enemyShips) {
+            enemyGridItems[gridItem.position].apply {
+                isShip = gridItem.isShip
+                isHit = gridItem.isHit
+            }
+        }
+        enemyGridAdapter.notifyDataSetChanged()
+
+        updateTurnIndicator()
     }
 
     private fun updatePlayerGrid(playerShips: List<GridItem>) {
