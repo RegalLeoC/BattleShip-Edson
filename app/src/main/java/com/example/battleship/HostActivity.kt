@@ -1,7 +1,5 @@
 package com.example.battleship
 
-/*
-
 import android.os.Bundle
 import android.widget.AdapterView
 import android.widget.GridView
@@ -12,7 +10,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlin.random.Random
 
-class GameActivity : AppCompatActivity() {
+class HostActivity : AppCompatActivity() {
 
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
@@ -29,7 +27,7 @@ class GameActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_game)
+        setContentView(R.layout.activity_host)
 
         auth = FirebaseAuth.getInstance()
         db = FirebaseFirestore.getInstance()
@@ -40,7 +38,7 @@ class GameActivity : AppCompatActivity() {
         playerGrid = findViewById(R.id.playerGrid)
 
         initGrids()
-        //updateTurnIndicator(game)
+        listenForUpdates()
     }
 
     private fun initGrids() {
@@ -54,21 +52,9 @@ class GameActivity : AppCompatActivity() {
         playerGrid.adapter = playerGridAdapter
 
         enemyGrid.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
-            val currentUser = auth.currentUser?.uid
-            val gameRef = db.collection("games").document(gameId)
-            gameRef.get().addOnSuccessListener { document ->
-                if (document != null) {
-                    val game = document.toObject(Game::class.java)
-                    if (game != null && game.turn == currentUser) {
-                        handleEnemyGridClick(game, position)
-                    } else {
-                        Toast.makeText(this, "Not your turn", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
+            handleEnemyGridClick(position)
         }
 
-        // Generate and display ships if not already present
         generateAndSaveShips()
     }
 
@@ -80,15 +66,13 @@ class GameActivity : AppCompatActivity() {
             if (document != null) {
                 val game = document.toObject(Game::class.java)
                 if (game != null && currentUser != null) {
-                    if ((currentUser == game.player1 && game.playerShips.isEmpty()) ||
-                        (currentUser == game.player2 && game.enemyShips.isEmpty())) {
+                    if (game.player1 == currentUser && game.player1Ships.isEmpty()) {
                         val ships = generateShips()
-                        val field = if (currentUser == game.player1) "playerShips" else "enemyShips"
-                        gameRef.update(field, ships).addOnSuccessListener {
-                            loadGridData(game)
+                        gameRef.update("player1Ships", ships).addOnSuccessListener {
+                            loadGridData()
                         }
                     } else {
-                        loadGridData(game)
+                        loadGridData()
                     }
                 }
             }
@@ -130,45 +114,62 @@ class GameActivity : AppCompatActivity() {
         return true
     }
 
-    private fun loadGridData(game: Game) {
-        val currentUser = auth.currentUser?.uid
+    private fun loadGridData() {
+        val gameRef = db.collection("games").document(gameId)
+        gameRef.get().addOnSuccessListener { document ->
+            if (document != null) {
+                val game = document.toObject(Game::class.java)
+                if (game != null) {
+                    val currentUser = auth.currentUser?.uid
 
-        // Update the player's grid based on the stored data
-        val playerShips = if (currentUser == game.player1) game.playerShips else game.enemyShips
-        for (gridItem in playerShips) {
-            playerGridItems[gridItem.position].apply {
-                isShip = true
-                isHit = gridItem.isHit
+                    val playerShips = if (currentUser == game.player1) game.player1Ships else game.player2Ships
+                    for (gridItem in playerShips) {
+                        playerGridItems[gridItem.position].apply {
+                            isShip = true
+                            isHit = gridItem.isHit
+                        }
+                    }
+                    playerGridAdapter.notifyDataSetChanged()
+
+                    val enemyHits = if (currentUser == game.player1) game.player2Hits else game.player1Hits
+                    for (gridItem in enemyHits) {
+                        enemyGridItems[gridItem.position].apply {
+                            isHit = true
+                            isShip = gridItem.isShip
+                        }
+                    }
+                    enemyGridAdapter.notifyDataSetChanged()
+
+                    updateTurnIndicator()
+                }
             }
         }
-        playerGridAdapter.notifyDataSetChanged()
-
-        // Update the enemy's grid based on the stored data
-        val enemyHits = if (currentUser == game.player1) game.enemyHits else game.playerShips
-        for (gridItem in enemyHits) {
-            enemyGridItems[gridItem.position].apply {
-                isHit = true
-                isShip = gridItem.isShip
-            }
-        }
-        enemyGridAdapter.notifyDataSetChanged()
     }
 
-
-    private fun handleEnemyGridClick(game: Game, position: Int) {
+    private fun handleEnemyGridClick(position: Int) {
         val gameRef = db.collection("games").document(gameId)
-        val item = enemyGridItems[position]
-        if (!item.isHit) {
-            item.isHit = true
-            if (isShipAtPosition(game.enemyShips, position)) {
-                item.isShip = true
-                updatePlayerView(game, position, true)
-                checkForWin(game)
-            } else {
-                updatePlayerView(game, position, false)
+        val currentUser = auth.currentUser?.uid
+
+        gameRef.get().addOnSuccessListener { document ->
+            if (document != null) {
+                val game = document.toObject(Game::class.java)
+                if (game != null && currentUser == game.turn) {
+                    val item = enemyGridItems[position]
+                    if (!item.isHit) {
+                        item.isHit = true
+                        if (isShipAtPosition(game.player2Ships, position)) {
+                            item.isShip = true
+                            gameRef.update("player2Ships", game.player2Ships)
+                            checkForWin(game)
+                        }
+                        gameRef.update("player1Hits", enemyGridItems)
+                        enemyGridAdapter.notifyDataSetChanged()
+                        switchTurn(game)
+                    }
+                } else {
+                    Toast.makeText(this, "Not your turn", Toast.LENGTH_SHORT).show()
+                }
             }
-            enemyGridAdapter.notifyDataSetChanged()
-            switchTurn(game)
         }
     }
 
@@ -176,49 +177,52 @@ class GameActivity : AppCompatActivity() {
         return ships.any { it.position == position && it.isShip }
     }
 
-    private fun updatePlayerView(game: Game, position: Int, isHit: Boolean) {
-        val currentUser = auth.currentUser?.uid
-        val field = if (currentUser == game.player1) "playerHits" else "enemyHits"
-        val updatedGrid = if (isHit) game.enemyShips else game.enemyHits
-
-        val gameRef = db.collection("games").document(gameId)
-        gameRef.update(field, updatedGrid)
-    }
-
     private fun switchTurn(game: Game) {
         val nextTurn = if (game.turn == game.player1) game.player2 else game.player1
         val gameRef = db.collection("games").document(gameId)
         gameRef.update("turn", nextTurn).addOnSuccessListener {
-            //updateTurnIndicator()
-            enableDisableGrids(nextTurn)
+            updateTurnIndicator()
         }
     }
 
-    private fun updateTurnIndicator(game: Game) {
+    private fun updateTurnIndicator() {
         val currentUser = auth.currentUser?.uid
-        val currentTurn = game.turn
-        if (currentTurn == currentUser) {
-            turnIndicator.text = "Your Turn"
-        } else {
-            turnIndicator.text = "Opponent's Turn"
+        val gameRef = db.collection("games").document(gameId)
+        gameRef.get().addOnSuccessListener { document ->
+            if (document != null) {
+                val game = document.toObject(Game::class.java)
+                if (game != null) {
+                    val currentTurn = game.turn
+                    turnIndicator.text = if (currentTurn == currentUser) "Your Turn" else "Opponent's Turn"
+                }
+            }
         }
-    }
-
-
-    private fun enableDisableGrids(nextTurn: String?) {
-        val currentUser = auth.currentUser?.uid
-        enemyGrid.isEnabled = nextTurn == currentUser
     }
 
     private fun checkForWin(game: Game) {
         val gameRef = db.collection("games").document(gameId)
         val currentUser = auth.currentUser?.uid
-        val enemyShips = if (currentUser == game.player1) game.enemyShips else game.playerShips
+        val enemyShips = if (currentUser == game.player1) game.player2Ships else game.player1Ships
         if (enemyShips.all { it.isHit }) {
             Toast.makeText(this, "You won!", Toast.LENGTH_LONG).show()
             gameRef.delete()
         }
     }
-}
 
-       */
+    private fun listenForUpdates() {
+        val gameRef = db.collection("games").document(gameId)
+        gameRef.addSnapshotListener { document, e ->
+            if (e != null) {
+                return@addSnapshotListener
+            }
+
+            if (document != null && document.exists()) {
+                val game = document.toObject(Game::class.java)
+                if (game != null) {
+                    loadGridData()
+                    updateTurnIndicator()
+                }
+            }
+        }
+    }
+}

@@ -8,7 +8,8 @@ data class Game(
     val player2: String? = null,
     val turn: String = "",
     @get:PropertyName("full") @set:PropertyName("full") var isFull: Boolean = false,
-    var playerShips: List<GridItem> = listOf(),
-    var enemyShips: List<GridItem> = listOf(),
-    var enemyHits: List<GridItem> = listOf()
+    val player1Ships: List<GridItem> = emptyList(),
+    val player2Ships: List<GridItem> = emptyList(),
+    val player1Hits: List<GridItem> = emptyList(),
+    val player2Hits: List<GridItem> = emptyList(),
 )

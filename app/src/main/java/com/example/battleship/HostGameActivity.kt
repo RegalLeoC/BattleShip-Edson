@@ -42,9 +42,11 @@ class HostGameActivity : AppCompatActivity() {
             player1 = userId,
             turn = userId,
             isFull = false,
-            playerShips = List(64) { GridItem() },
-            enemyShips = List(64) { GridItem() },
-            enemyHits = List(64) { GridItem() }
+            player1Ships = List(64) { GridItem() },
+            player2Ships = List(64) { GridItem() },
+            player1Hits = List(64) { GridItem() },
+            player2Hits = List(64) { GridItem() }
+
         )
         db.collection("games").document(gameId).set(newGame)
             .addOnSuccessListener {
@@ -64,7 +66,7 @@ class HostGameActivity : AppCompatActivity() {
 
             val game = snapshot.toObject(Game::class.java)
             if (game?.isFull == true) {
-                val intent = Intent(this, GameActivity::class.java)
+                val intent = Intent(this, HostActivity::class.java)
                 intent.putExtra("gameId", gameId)
                 startActivity(intent)
                 finish()

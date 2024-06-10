@@ -5,7 +5,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
-import com.example.battleship.databinding.GridItemBinding
+import android.widget.ImageView
+import com.example.battleship.R
 
 class GridAdapter(private val context: Context, private val gridItems: List<GridItem>) : BaseAdapter() {
 
@@ -22,28 +23,32 @@ class GridAdapter(private val context: Context, private val gridItems: List<Grid
     }
 
     override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
-        val binding: GridItemBinding
         val view: View
+        val imageView: ImageView
 
         if (convertView == null) {
-            binding = GridItemBinding.inflate(LayoutInflater.from(context), parent, false)
-            view = binding.root
-            view.tag = binding
+            view = LayoutInflater.from(context).inflate(R.layout.grid_item, parent, false)
+            imageView = view.findViewById(R.id.gridItemImage)
+            view.tag = imageView
         } else {
-            binding = convertView.tag as GridItemBinding
             view = convertView
+            imageView = view.tag as ImageView
         }
 
         val item = gridItems[position]
 
         if (item.isHit) {
             if (item.isShip) {
-                view.setBackgroundResource(R.drawable.hit_background)
+                imageView.setImageResource(R.drawable.ic_ship_hit)
             } else {
-                view.setBackgroundResource(R.drawable.miss_background)
+                imageView.setImageResource(R.drawable.ic_miss)
             }
         } else {
-            view.setBackgroundResource(R.drawable.default_background)
+            if (item.isShip) {
+                imageView.setImageResource(R.drawable.ic_ship)
+            } else {
+                imageView.setImageResource(R.drawable.ic_empty)
+            }
         }
 
         return view

@@ -56,7 +56,7 @@ class JoinGameActivity : AppCompatActivity() {
         val userId = auth.currentUser?.uid ?: return
         db.collection("games").document(gameId).update("player2", userId, "full", true)
             .addOnSuccessListener {
-                val intent = Intent(this, GameActivity::class.java)
+                val intent = Intent(this, JoinerActivity::class.java)
                 intent.putExtra("gameId", gameId)
                 startActivity(intent)
             }
