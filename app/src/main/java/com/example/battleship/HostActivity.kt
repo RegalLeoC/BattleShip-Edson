@@ -48,11 +48,13 @@ class HostActivity : AppCompatActivity() {
     }
 
     private fun initGrids() {
+        if (gridsInitialized) return // Prevent reinitialization
+
         // Ensure positions are correctly enumerated
         enemyGridItems = MutableList(64) { GridItem(false, it, false) }
         playerGridItems = MutableList(64) { GridItem(false, it, false) }
 
-        for (i in enemyGridItems.indices){
+        for (i in enemyGridItems.indices) {
             enemyGridItems[i].position = i
         }
 
@@ -93,6 +95,8 @@ class HostActivity : AppCompatActivity() {
                 }
             }
         }
+
+        gridsInitialized = true // Mark grids as initialized
     }
 
     private fun generateShips(): List<GridItem> {
