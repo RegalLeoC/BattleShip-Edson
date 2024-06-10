@@ -3,37 +3,33 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:gravity="center">
+    android:gravity="center"
+    android:padding="16dp">
 
     <Button
         android:id="@+id/btnLogin"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="INICIAR SESIÓN" />
+        android:text="Login" />
 
     <Button
-        android:id="@+id/btnPlay"
+        android:id="@+id/btnHost"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="JUGAR"
-        android:enabled="false" />
+        android:text="Host Game"
+        android:layout_marginTop="16dp" />
+
+    <Button
+        android:id="@+id/btnJoin"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Join Game"
+        android:layout_marginTop="16dp" />
 
     <Button
         android:id="@+id/btnScores"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="PUNTUACIONES" />
-
-    <Button
-        android:id="@+id/btnHostGame"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Host Game" />
-
-    <Button
-        android:id="@+id/btnJoinGame"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Join Game" />
-
+        android:text="Scores"
+        android:layout_marginTop="16dp" />
 </LinearLayout>

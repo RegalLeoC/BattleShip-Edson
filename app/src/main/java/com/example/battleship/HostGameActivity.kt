@@ -42,8 +42,9 @@ class HostGameActivity : AppCompatActivity() {
             player1 = userId,
             turn = userId,
             isFull = false,
-            player1Grid = List(64) { GridItem() },
-            player2Grid = List(64) { GridItem() }
+            playerShips = List(64) { GridItem() },
+            enemyShips = List(64) { GridItem() },
+            enemyHits = List(64) { GridItem() }
         )
         db.collection("games").document(gameId).set(newGame)
             .addOnSuccessListener {

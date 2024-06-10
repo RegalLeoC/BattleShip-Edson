@@ -1,12 +1,14 @@
 package com.example.battleship
 
+import com.google.firebase.firestore.PropertyName
 
 data class Game(
     val id: String = "",
-    val player1: String? = null,
+    val player1: String = "",
     val player2: String? = null,
-    val turn: String? = null,
-    val isFull: Boolean = false,
-    val player1Grid: List<GridItem> = listOf(),
-    val player2Grid: List<GridItem> = listOf()
+    val turn: String = "",
+    @get:PropertyName("full") @set:PropertyName("full") var isFull: Boolean = false,
+    var playerShips: List<GridItem> = listOf(),
+    var enemyShips: List<GridItem> = listOf(),
+    var enemyHits: List<GridItem> = listOf()
 )

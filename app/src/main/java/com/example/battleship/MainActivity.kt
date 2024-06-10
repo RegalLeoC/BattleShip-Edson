@@ -3,16 +3,14 @@ package com.example.battleship
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
-import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var btnLogin: Button
-    private lateinit var btnPlay: Button
+    private lateinit var btnHost: Button
+    private lateinit var btnJoin: Button
     private lateinit var btnScores: Button
     private lateinit var auth: FirebaseAuth
 
@@ -21,7 +19,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         btnLogin = findViewById(R.id.btnLogin)
-        btnPlay = findViewById(R.id.btnPlay)
+        btnHost = findViewById(R.id.btnHost)
+        btnJoin = findViewById(R.id.btnJoin)
         btnScores = findViewById(R.id.btnScores)
         auth = FirebaseAuth.getInstance()
 
@@ -29,8 +28,12 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, LoginActivity::class.java))
         }
 
-        btnPlay.setOnClickListener {
-            showGameOptionsDialog()
+        btnHost.setOnClickListener {
+            startActivity(Intent(this, HostGameActivity::class.java))
+        }
+
+        btnJoin.setOnClickListener {
+            startActivity(Intent(this, JoinGameActivity::class.java))
         }
 
         btnScores.setOnClickListener {
@@ -38,45 +41,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         auth.addAuthStateListener {
-            btnPlay.isEnabled = it.currentUser != null
+            val userLoggedIn = it.currentUser != null
+            btnHost.isEnabled = userLoggedIn
+            btnJoin.isEnabled = userLoggedIn
+            btnScores.isEnabled = userLoggedIn
         }
-    }
-
-    private fun showGameOptionsDialog() {
-        val options = arrayOf("Host a game", "Join a game")
-        AlertDialog.Builder(this)
-            .setTitle("Choose an option")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> hostGame()
-                    1 -> joinGame()
-                }
-            }
-            .show()
-    }
-
-    private fun hostGame() {
-        val db = FirebaseFirestore.getInstance()
-        val userId = auth.currentUser?.uid ?: return
-        val newGame = Game(
-            id = db.collection("games").document().id,
-            player1 = userId,
-            turn = userId,
-            isFull = false
-        )
-        db.collection("games").document(newGame.id).set(newGame)
-            .addOnSuccessListener {
-                val intent = Intent(this, GameActivity::class.java)
-                intent.putExtra("gameId", newGame.id)
-                startActivity(intent)
-            }
-            .addOnFailureListener {
-                Toast.makeText(this, "Failed to host game.", Toast.LENGTH_SHORT).show()
-            }
-    }
-
-    private fun joinGame() {
-        val intent = Intent(this, JoinGameActivity::class.java)
-        startActivity(intent)
     }
 }

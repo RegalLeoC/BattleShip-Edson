@@ -6,28 +6,34 @@
     android:padding="16dp">
 
     <TextView
-        android:id="@+id/tvTurn"
+        android:id="@+id/turnIndicator"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Your Turn"
         android:textSize="18sp"
-        android:layout_gravity="center_horizontal"
-        android:paddingBottom="16dp" />
+        android:layout_gravity="center"
+        android:padding="8dp" />
 
     <GridView
-        android:id="@+id/gridLocal"
+        android:id="@+id/enemyGrid"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:numColumns="8"
-        android:verticalSpacing="2dp"
-        android:horizontalSpacing="2dp" />
+        android:verticalSpacing="4dp"
+        android:horizontalSpacing="4dp"
+        android:stretchMode="columnWidth"
+        android:gravity="center" />
 
     <GridView
-        android:id="@+id/gridRival"
+        android:id="@+id/playerGrid"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:numColumns="8"
-        android:verticalSpacing="2dp"
-        android:horizontalSpacing="2dp"
-        android:paddingTop="16dp" />
+        android:verticalSpacing="4dp"
+        android:horizontalSpacing="4dp"
+        android:stretchMode="columnWidth"
+        android:gravity="center" />
+
 </LinearLayout>
