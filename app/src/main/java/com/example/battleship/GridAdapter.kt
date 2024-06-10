@@ -6,7 +6,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.ImageView
-import com.example.battleship.R
 
 class GridAdapter(private val context: Context, private val gridItems: List<GridItem>) : BaseAdapter() {
 
@@ -25,6 +24,7 @@ class GridAdapter(private val context: Context, private val gridItems: List<Grid
     override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
         val view: View
         val imageView: ImageView
+        val gridItem = gridItems[position]
 
         if (convertView == null) {
             view = LayoutInflater.from(context).inflate(R.layout.grid_item, parent, false)
@@ -35,16 +35,14 @@ class GridAdapter(private val context: Context, private val gridItems: List<Grid
             imageView = view.tag as ImageView
         }
 
-        val item = gridItems[position]
-
-        if (item.isHit) {
-            if (item.isShip) {
+        if (gridItem.isHit) {
+            if (gridItem.isShip) {
                 imageView.setImageResource(R.drawable.ic_ship_hit)
             } else {
                 imageView.setImageResource(R.drawable.ic_miss)
             }
         } else {
-            if (item.isShip) {
+            if (gridItem.isShip) {
                 imageView.setImageResource(R.drawable.ic_ship)
             } else {
                 imageView.setImageResource(R.drawable.ic_empty)
