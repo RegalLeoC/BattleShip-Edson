@@ -28,6 +28,8 @@ class HostActivity : AppCompatActivity() {
 
     private lateinit var gameRef: DocumentReference
 
+    private var gridsInitialized = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_host)
@@ -47,8 +49,8 @@ class HostActivity : AppCompatActivity() {
 
     private fun initGrids() {
         // Ensure positions are correctly enumerated
-        enemyGridItems = MutableList(64) { GridItem(false, position = it, false) }
-        playerGridItems = MutableList(64) { GridItem(false, position =  it, false) }
+        enemyGridItems = MutableList(64) { GridItem(false, it, false) }
+        playerGridItems = MutableList(64) { GridItem(false, it, false) }
 
         for (i in enemyGridItems.indices){
             enemyGridItems[i].position = i
@@ -58,7 +60,16 @@ class HostActivity : AppCompatActivity() {
             playerGridItems[i].position = i
         }
 
+        // Initialize player1Ships with default ships
+        val ships = generateShips()
+        gameRef.update("player1Ships", ships).addOnSuccessListener {
+            updatePlayerGrid(ships)
+        }.addOnFailureListener { exception ->
+            Toast.makeText(this, "Failed to initialize player 1 ships.", Toast.LENGTH_SHORT).show()
+            finish()
+        }
 
+        // Initialize UI
         enemyGridAdapter = GridAdapter(this, enemyGridItems, isEnemyGrid = true)
         playerGridAdapter = GridAdapter(this, playerGridItems)
 
@@ -75,23 +86,9 @@ class HostActivity : AppCompatActivity() {
                 val game = document.toObject(Game::class.java)
                 if (game != null) {
                     if (currentUser == game.player1) {
-                        if (game.player1Ships.isEmpty()) {
-                            val ships = generateShips()
-                            gameRef.update("player1Ships", ships).addOnSuccessListener {
-                                updatePlayerGrid(ships)
-                            }
-                        } else {
-                            updatePlayerGrid(game.player1Ships)
-                        }
+                        updatePlayerGrid(game.player1Ships)
                     } else {
-                        if (game.player2Ships.isEmpty()) {
-                            val ships = generateShips()
-                            gameRef.update("player2Ships", ships).addOnSuccessListener {
-                                updatePlayerGrid(ships)
-                            }
-                        } else {
-                            updatePlayerGrid(game.player2Ships)
-                        }
+                        updatePlayerGrid(game.player2Ships)
                     }
                 }
             }
@@ -105,26 +102,26 @@ class HostActivity : AppCompatActivity() {
 
         for (size in shipSizes) {
             var placed = false
-            var attempts = 0 // To prevent infinite loops
-            while (!placed && attempts < 100) {
-                attempts++
+            while (!placed) {
                 val start = random.nextInt(64)
                 val horizontal = random.nextBoolean()
                 if (canPlaceShip(start, size, horizontal, ships)) {
-                    Log.d("GenerateShips", "Placing ship of size $size at start $start horizontally: $horizontal")
                     for (i in 0 until size) {
                         val pos = if (horizontal) start + i else start + i * 8
                         ships[pos].isShip = true
                     }
                     placed = true
-                } else {
-                    Log.d("GenerateShips", "Cannot place ship of size $size at start $start horizontally: $horizontal")
                 }
             }
-            if (attempts == 100) {
-                Log.e("GenerateShips", "Failed to place ship of size $size after 100 attempts")
-            }
         }
+
+        // Update player1Ships in the database
+        gameRef.update("player1Ships", ships).addOnSuccessListener {
+            Log.d("HostActivity", "Player 1 ships updated in the database")
+        }.addOnFailureListener { exception ->
+            Log.e("HostActivity", "Failed to update player 1 ships: $exception")
+        }
+
         return ships
     }
 

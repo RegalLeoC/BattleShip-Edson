@@ -1,6 +1,7 @@
 package com.example.battleship
 
 import android.os.Bundle
+import android.util.Log
 import android.widget.AdapterView
 import android.widget.GridView
 import android.widget.TextView
@@ -48,6 +49,24 @@ class JoinerActivity : AppCompatActivity() {
         enemyGridItems = MutableList(64) {  GridItem(false, it, false) }
         playerGridItems = MutableList(64) {  GridItem(false, it, false) }
 
+        for (i in enemyGridItems.indices){
+            enemyGridItems[i].position = i
+        }
+
+        for (i in playerGridItems.indices) {
+            playerGridItems[i].position = i
+        }
+
+        // Initialize player2Ships with default ships
+        val ships = generateShips()
+        gameRef.update("player2Ships", ships).addOnSuccessListener {
+            updatePlayerGrid(ships)
+        }.addOnFailureListener { exception ->
+            Toast.makeText(this, "Failed to initialize player 2 ships.", Toast.LENGTH_SHORT).show()
+            finish()
+        }
+
+        // Initialize UI
         enemyGridAdapter = GridAdapter(this, enemyGridItems, isEnemyGrid = true)
         playerGridAdapter = GridAdapter(this, playerGridItems)
 
@@ -62,8 +81,6 @@ class JoinerActivity : AppCompatActivity() {
             playerGridItems[i].position = i
         }
 
-
-
         enemyGrid.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
             handleEnemyGridClick(position)
         }
@@ -74,23 +91,9 @@ class JoinerActivity : AppCompatActivity() {
                 val game = document.toObject(Game::class.java)
                 if (game != null) {
                     if (currentUser == game.player1) {
-                        if (game.player1Ships.isEmpty()) {
-                            val ships = generateShips()
-                            gameRef.update("player1Ships", ships).addOnSuccessListener {
-                                updatePlayerGrid(ships)
-                            }
-                        } else {
-                            updatePlayerGrid(game.player1Ships)
-                        }
+                        updatePlayerGrid(game.player1Ships)
                     } else {
-                        if (game.player2Ships.isEmpty()) {
-                            val ships = generateShips()
-                            gameRef.update("player2Ships", ships).addOnSuccessListener {
-                                updatePlayerGrid(ships)
-                            }
-                        } else {
-                            updatePlayerGrid(game.player2Ships)
-                        }
+                        updatePlayerGrid(game.player2Ships)
                     }
                 }
             }
@@ -119,6 +122,14 @@ class JoinerActivity : AppCompatActivity() {
                 }
             }
         }
+
+        // Update player2Ships in the database
+        gameRef.update("player2Ships", ships).addOnSuccessListener {
+            Log.d("JoinerActivity", "Player 2 ships updated in the database")
+        }.addOnFailureListener { exception ->
+            Log.e("JoinerActivity", "Failed to update player 2 ships: $exception")
+        }
+
         return ships
     }
 
