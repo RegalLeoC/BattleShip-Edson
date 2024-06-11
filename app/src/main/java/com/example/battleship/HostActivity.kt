@@ -30,6 +30,8 @@ class HostActivity : AppCompatActivity() {
 
     private var gridsInitialized = false
 
+    private var score = 1000
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_host)
@@ -50,7 +52,6 @@ class HostActivity : AppCompatActivity() {
     private fun initGrids() {
         if (gridsInitialized) return // Prevent reinitialization
 
-        // Ensure positions are correctly enumerated
         enemyGridItems = MutableList(64) { GridItem(false, it, false) }
         playerGridItems = MutableList(64) { GridItem(false, it, false) }
 
@@ -150,12 +151,22 @@ class HostActivity : AppCompatActivity() {
                     val item = enemyGridItems[position]
                     if (!item.isHit) {
                         item.isHit = true
+                        if (!item.isShip) {
+                            score -= 10
+                            Toast.makeText(this, "Miss! Score: $score", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(this, "Hit!", Toast.LENGTH_SHORT).show()
+                        }
                         val player2Ships = game.player2Ships.toMutableList()
                         val target = player2Ships.find { it.position == position }
                         target?.isHit = true
-                        gameRef.update("player2Ships", player2Ships)
-                        enemyGridAdapter.notifyDataSetChanged()
-                        switchTurn(game)
+                        gameRef.update("player2Ships", player2Ships).addOnSuccessListener {
+                            enemyGridAdapter.notifyDataSetChanged()
+                            checkForWin(game)
+                            switchTurn(game)
+                        }.addOnFailureListener { exception ->
+                            Log.e("HostActivity", "Error updating ships: $exception")
+                        }
                     }
                 } else {
                     Toast.makeText(this, "Not your turn", Toast.LENGTH_SHORT).show()
@@ -163,6 +174,7 @@ class HostActivity : AppCompatActivity() {
             }
         }
     }
+
 
     private fun switchTurn(game: Game) {
         val nextTurn = if (game.turn == game.player1) game.player2 else game.player1
@@ -187,9 +199,41 @@ class HostActivity : AppCompatActivity() {
     private fun checkForWin(game: Game) {
         val currentUser = auth.currentUser?.uid
         val enemyShips = if (currentUser == game.player1) game.player2Ships else game.player1Ships
-        if (enemyShips.all { it.isHit }) {
+        val hits = enemyShips.count { it.isHit }
+
+        if (hits == 14) {
             Toast.makeText(this, "You won!", Toast.LENGTH_LONG).show()
-            gameRef.delete()
+            saveScore()
+            gameRef.delete().addOnSuccessListener {
+                finish()
+            }.addOnFailureListener { exception ->
+                Log.e("HostActivity", "Error deleting game: $exception")
+            }
+        } else {
+            val playerShips = if (currentUser == game.player1) game.player1Ships else game.player2Ships
+            val playerHits = playerShips.count { it.isHit }
+
+            if (playerHits == 14) {
+                Toast.makeText(this, "You lost!", Toast.LENGTH_LONG).show()
+                gameRef.delete().addOnSuccessListener {
+                    finish()
+                }.addOnFailureListener { exception ->
+                    Log.e("HostActivity", "Error deleting game: $exception")
+                }
+            }
+        }
+    }
+
+
+    private fun saveScore() {
+        val currentUser = auth.currentUser
+        if (currentUser != null) {
+            val score = Score(user = currentUser.uid, points = score)
+            db.collection("scores").add(score).addOnSuccessListener {
+                Log.d("HostActivity", "Score saved successfully")
+            }.addOnFailureListener { exception ->
+                Log.e("HostActivity", "Failed to save score: $exception")
+            }
         }
     }
 
@@ -229,27 +273,34 @@ class HostActivity : AppCompatActivity() {
             }
         }
         enemyGridAdapter.notifyDataSetChanged()
-
-        updateTurnIndicator()
     }
 
     private fun updatePlayerGrid(playerShips: List<GridItem>) {
         for (gridItem in playerShips) {
             playerGridItems[gridItem.position].apply {
-                isHit = gridItem.isHit
                 isShip = gridItem.isShip
+                isHit = gridItem.isHit
             }
         }
         playerGridAdapter.notifyDataSetChanged()
     }
 
-    private fun updateEnemyGrid(enemyShips: List<GridItem>) {
-        for (gridItem in enemyShips) {
-            enemyGridItems[gridItem.position].apply {
-                isHit = gridItem.isHit
-                isShip = gridItem.isShip
+    private fun updateLeaderboard() {
+        db.collection("scores")
+            .orderBy("points", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(10)
+            .get()
+            .addOnSuccessListener { documents ->
+                val scores = documents.toObjects(Score::class.java)
+                // Code to update UI or pass data to the LeaderboardActivity
             }
-        }
-        enemyGridAdapter.notifyDataSetChanged()
+            .addOnFailureListener { exception ->
+                Log.e("Leaderboard", "Error getting scores: $exception")
+            }
     }
+
+    /*private fun launchLeaderboardActivity() {
+        val intent = Intent(this, LeaderboardActivity::class.java)
+        startActivity(intent)
+    } */
 }

@@ -1,5 +1,6 @@
 package com.example.battleship
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.AdapterView
@@ -28,6 +29,10 @@ class JoinerActivity : AppCompatActivity() {
 
     private lateinit var gameRef: DocumentReference
 
+    private var gridsInitialized = false
+
+    private var score = 1000
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_joiner)
@@ -46,10 +51,12 @@ class JoinerActivity : AppCompatActivity() {
     }
 
     private fun initGrids() {
-        enemyGridItems = MutableList(64) {  GridItem(false, it, false) }
-        playerGridItems = MutableList(64) {  GridItem(false, it, false) }
+        if (gridsInitialized) return // Prevent reinitialization
 
-        for (i in enemyGridItems.indices){
+        enemyGridItems = MutableList(64) { GridItem(false, it, false) }
+        playerGridItems = MutableList(64) { GridItem(false, it, false) }
+
+        for (i in enemyGridItems.indices) {
             enemyGridItems[i].position = i
         }
 
@@ -73,14 +80,6 @@ class JoinerActivity : AppCompatActivity() {
         enemyGrid.adapter = enemyGridAdapter
         playerGrid.adapter = playerGridAdapter
 
-        for (i in enemyGridItems.indices){
-            enemyGridItems[i].position = i
-        }
-
-        for (i in playerGridItems.indices) {
-            playerGridItems[i].position = i
-        }
-
         enemyGrid.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
             handleEnemyGridClick(position)
         }
@@ -90,22 +89,21 @@ class JoinerActivity : AppCompatActivity() {
             if (document != null) {
                 val game = document.toObject(Game::class.java)
                 if (game != null) {
-                    if (currentUser == game.player1) {
-                        updatePlayerGrid(game.player1Ships)
-                    } else {
+                    if (currentUser == game.player2) {
                         updatePlayerGrid(game.player2Ships)
+                    } else {
+                        updatePlayerGrid(game.player1Ships)
                     }
                 }
             }
         }
+
+        gridsInitialized = true // Mark grids as initialized
     }
-
-
-
 
     private fun generateShips(): List<GridItem> {
         val shipSizes = listOf(4, 3, 3, 2, 2)
-        val ships = MutableList(64) {  GridItem(false, it, false) }
+        val ships = MutableList(64) { GridItem(false, it, false) }
         val random = java.util.Random()
 
         for (size in shipSizes) {
@@ -154,12 +152,22 @@ class JoinerActivity : AppCompatActivity() {
                     val item = enemyGridItems[position]
                     if (!item.isHit) {
                         item.isHit = true
+                        if (!item.isShip) {
+                            score -= 10
+                            Toast.makeText(this, "Miss! Score: $score", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(this, "Hit!", Toast.LENGTH_SHORT).show()
+                        }
                         val player1Ships = game.player1Ships.toMutableList()
                         val target = player1Ships.find { it.position == position }
                         target?.isHit = true
-                        gameRef.update("player1Ships", player1Ships)
-                        enemyGridAdapter.notifyDataSetChanged()
-                        switchTurn(game)
+                        gameRef.update("player1Ships", player1Ships).addOnSuccessListener {
+                            enemyGridAdapter.notifyDataSetChanged()
+                            checkForWin(game)
+                            switchTurn(game)
+                        }.addOnFailureListener { exception ->
+                            Log.e("JoinerActivity", "Error updating ships: $exception")
+                        }
                     }
                 } else {
                     Toast.makeText(this, "Not your turn", Toast.LENGTH_SHORT).show()
@@ -167,6 +175,8 @@ class JoinerActivity : AppCompatActivity() {
             }
         }
     }
+
+
 
     private fun switchTurn(game: Game) {
         val nextTurn = if (game.turn == game.player1) game.player2 else game.player1
@@ -190,10 +200,43 @@ class JoinerActivity : AppCompatActivity() {
 
     private fun checkForWin(game: Game) {
         val currentUser = auth.currentUser?.uid
-        val enemyShips = if (currentUser == game.player1) game.player2Ships else game.player1Ships
-        if (enemyShips.all { it.isHit }) {
+        val enemyShips = if (currentUser == game.player2) game.player1Ships else game.player2Ships
+        val hits = enemyShips.count { it.isHit }
+
+        if (hits == 14) {
             Toast.makeText(this, "You won!", Toast.LENGTH_LONG).show()
-            gameRef.delete()
+            saveScore()
+            gameRef.delete().addOnSuccessListener {
+                finish()
+            }.addOnFailureListener { exception ->
+                Log.e("JoinerActivity", "Error deleting game: $exception")
+            }
+        } else {
+            val playerShips = if (currentUser == game.player2) game.player2Ships else game.player1Ships
+            val playerHits = playerShips.count { it.isHit }
+
+            if (playerHits == 14) {
+                Toast.makeText(this, "You lost!", Toast.LENGTH_LONG).show()
+                gameRef.delete().addOnSuccessListener {
+                    finish()
+                }.addOnFailureListener { exception ->
+                    Log.e("JoinerActivity", "Error deleting game: $exception")
+                }
+            }
+        }
+    }
+
+
+
+    private fun saveScore() {
+        val currentUser = auth.currentUser
+        if (currentUser != null) {
+            val score = Score(user = currentUser.uid, points = score)
+            db.collection("scores").add(score).addOnSuccessListener {
+                Log.d("JoinerActivity", "Score saved successfully")
+            }.addOnFailureListener { exception ->
+                Log.e("JoinerActivity", "Failed to save score: $exception")
+            }
         }
     }
 
@@ -213,11 +256,10 @@ class JoinerActivity : AppCompatActivity() {
         }
     }
 
-
     private fun updateGrids(game: Game) {
         val currentUser = auth.currentUser?.uid
 
-        val playerShips = if (currentUser == game.player1) game.player1Ships else game.player2Ships
+        val playerShips = if (currentUser == game.player2) game.player2Ships else game.player1Ships
         for (gridItem in playerShips) {
             playerGridItems[gridItem.position].apply {
                 isShip = gridItem.isShip
@@ -226,7 +268,7 @@ class JoinerActivity : AppCompatActivity() {
         }
         playerGridAdapter.notifyDataSetChanged()
 
-        val enemyShips = if (currentUser == game.player1) game.player2Ships else game.player1Ships
+        val enemyShips = if (currentUser == game.player2) game.player1Ships else game.player2Ships
         for (gridItem in enemyShips) {
             enemyGridItems[gridItem.position].apply {
                 isShip = gridItem.isShip
@@ -234,40 +276,34 @@ class JoinerActivity : AppCompatActivity() {
             }
         }
         enemyGridAdapter.notifyDataSetChanged()
-
-        updateTurnIndicator()
     }
-
-
-    /*private fun updateGrids(game: Game) {
-        val currentUser = auth.currentUser?.uid
-
-        // Update player's grid
-        val playerShips = if (currentUser == game.player1) game.player1Ships else game.player2Ships
-        updatePlayerGrid(playerShips)
-
-        // Update enemy's grid
-        val enemyShips = if (currentUser == game.player1) game.player2Ships else game.player1Ships
-        updateEnemyGrid(enemyShips)
-    }*/
 
     private fun updatePlayerGrid(playerShips: List<GridItem>) {
         for (gridItem in playerShips) {
             playerGridItems[gridItem.position].apply {
-                isHit = gridItem.isHit
                 isShip = gridItem.isShip
+                isHit = gridItem.isHit
             }
         }
         playerGridAdapter.notifyDataSetChanged()
     }
 
-    private fun updateEnemyGrid(enemyShips: List<GridItem>) {
-        for (gridItem in enemyShips) {
-            enemyGridItems[gridItem.position].apply {
-                isHit = gridItem.isHit
-                isShip = gridItem.isShip
+    private fun updateLeaderboard() {
+        db.collection("scores")
+            .orderBy("points", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(10)
+            .get()
+            .addOnSuccessListener { documents ->
+                val scores = documents.toObjects(Score::class.java)
+                // Code to update UI or pass data to the LeaderboardActivity
             }
-        }
-        enemyGridAdapter.notifyDataSetChanged()
+            .addOnFailureListener { exception ->
+                Log.e("Leaderboard", "Error getting scores: $exception")
+            }
     }
+
+    /*private fun launchLeaderboardActivity() {
+        val intent = Intent(this, LeaderboardActivity::class.java)
+        startActivity(intent)
+    }*/
 }
