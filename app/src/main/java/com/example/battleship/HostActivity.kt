@@ -199,19 +199,17 @@ class HostActivity : AppCompatActivity() {
     private fun checkForWin(game: Game) {
         val currentUser = auth.currentUser?.uid
         val enemyShips = if (currentUser == game.player1) game.player2Ships else game.player1Ships
-        val hits = enemyShips.count { it.isHit }
+
+        val hits = enemyShips.count { it.isHit && it.isShip}
 
         if (hits == 14) {
             Toast.makeText(this, "You won!", Toast.LENGTH_LONG).show()
             saveScore()
-            gameRef.delete().addOnSuccessListener {
-                finish()
-            }.addOnFailureListener { exception ->
-                Log.e("HostActivity", "Error deleting game: $exception")
-            }
+            finish()
+
         } else {
             val playerShips = if (currentUser == game.player1) game.player1Ships else game.player2Ships
-            val playerHits = playerShips.count { it.isHit }
+            val playerHits = playerShips.count {  it.isHit && it.isShip}
 
             if (playerHits == 14) {
                 Toast.makeText(this, "You lost!", Toast.LENGTH_LONG).show()
