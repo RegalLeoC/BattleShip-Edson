@@ -201,27 +201,40 @@ class JoinerActivity : AppCompatActivity() {
     private fun checkForWin(game: Game) {
         val currentUser = auth.currentUser?.uid
         val enemyShips = if (currentUser == game.player2) game.player1Ships else game.player2Ships
-        val hits = enemyShips.count { it.isHit && it.isShip}
+
+        // Count hits only on positions where there is a ship
+        val hits = enemyShips.count { it.isHit && it.isShip }
 
         if (hits == 14) {
             Toast.makeText(this, "You won!", Toast.LENGTH_LONG).show()
             saveScore()
-            finish()
-
+            gameRef.update(mapOf("gameOver" to true, "winner" to currentUser))
+                .addOnSuccessListener {
+                    finish()
+                }
+                .addOnFailureListener { exception ->
+                    Log.e("JoinerActivity", "Error updating game: $exception")
+                }
         } else {
             val playerShips = if (currentUser == game.player2) game.player2Ships else game.player1Ships
-            val playerHits = playerShips.count { it.isHit && it.isShip}
+
+            // Count hits only on positions where there is a ship
+            val playerHits = playerShips.count { it.isHit && it.isShip }
 
             if (playerHits == 14) {
                 Toast.makeText(this, "You lost!", Toast.LENGTH_LONG).show()
-                gameRef.delete().addOnSuccessListener {
-                    finish()
-                }.addOnFailureListener { exception ->
-                    Log.e("JoinerActivity", "Error deleting game: $exception")
-                }
+                val winnerId = if (currentUser == game.player1) game.player2 else game.player1
+                gameRef.update(mapOf("gameOver" to true, "winner" to winnerId))
+                    .addOnSuccessListener {
+                        finish()
+                    }
+                    .addOnFailureListener { exception ->
+                        Log.e("JoinerActivity", "Error updating game: $exception")
+                    }
             }
         }
     }
+
 
 
 
@@ -248,10 +261,20 @@ class JoinerActivity : AppCompatActivity() {
                 if (game != null) {
                     updateGrids(game)
                     updateTurnIndicator()
+
+                    if (game.gameOver) {
+                        if (game.winner == auth.currentUser?.uid) {
+                            Toast.makeText(this, "You won!", Toast.LENGTH_LONG).show()
+                        } else {
+                            Toast.makeText(this, "You lost!", Toast.LENGTH_LONG).show()
+                        }
+                        finish()
+                    }
                 }
             }
         }
     }
+
 
     private fun updateGrids(game: Game) {
         val currentUser = auth.currentUser?.uid

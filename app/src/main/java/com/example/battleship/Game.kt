@@ -9,5 +9,7 @@ data class Game(
     var turn: String = "",
     @get:PropertyName("full") @set:PropertyName("full") var isFull: Boolean = false,
     var player1Ships: List<GridItem> = emptyList(),
-    var player2Ships: List<GridItem> = emptyList()
+    var player2Ships: List<GridItem> = emptyList(),
+    var gameOver: Boolean = false,
+    var winner: String? = null
 )
